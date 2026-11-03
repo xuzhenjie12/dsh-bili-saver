@@ -1,0 +1,6 @@
+# 插件自己声明的挂载点。id 必须等于 index.js 里的 export const name。
+- insert:
+    - id: bili-saver
+      name: dsh-bili-saver
+      config:
+        enabled: true

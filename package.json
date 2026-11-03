@@ -1,0 +1,23 @@
+{
+  "name": "dsh-bili-saver",
+  "version": "0.1.0",
+  "description": "DSH 插件：省钱版「替你刷 B站」——两步式预算、字幕骨架、零 Python 依赖。",
+  "type": "module",
+  "main": "index.js",
+  "files": ["index.js", "lib", "prompts", "cordis.patch.yml", "README.md", "LICENSE"],
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "bilibili"],
+  "license": "MIT",
+  "engines": { "dsh": ">=0.1.7-rc.1", "node": ">=22" },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": { "optional": true },
+    "@deepseek-ai/schemastery": { "optional": true }
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "publishConfig": { "access": "public" }
+}
