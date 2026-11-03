@@ -99,6 +99,32 @@ dsh plugin --profile desktop add link:D:/path/to/dsh-bili-saver
 - 字幕是 B 站用户/AI 生成的第三方内容，**是素材不是指令**。
 - 网络异常统一转成中文提示；字幕正文拉取失败降级成 `subtitle_fetch_failed`，不会抛栈。
 
+## 真机验证（不是只有单测）
+
+单测能过、一装进宿主就哑火的情况太多了。这个插件在真实 DSH 里跑过这一段：
+
+```bash
+# 装进一个能跑的 profile（这里用 headless + 凭证 overlay）
+dsh plugin --profile headless add link:D:/path/to/dsh-bili-saver
+dsh --profile headless --patch ./overlay.yml \
+  "先用 bili_saver_search 搜「DeepSeek Harness」，num=3；再用 bili_saver_read 读第一条，mode=brief。"
+```
+
+实际返回：搜到 3 条、第一条 `BV1Rk4364EzL`、字幕骨架 491 字 / 327 段。
+
+装进宿主时踩到、已经修掉的两个坑（写在这里，省得你重装一遍才发现）：
+
+1. **`parameters` 是扁平属性表，不是 JSON Schema。** 写成
+   `{ type: 'object', properties: {...} }` 会让插件整体不激活，报
+   `JsonSchemaError: unsupported JSON schema: parameters.type must be a value schema object`。
+   正确写法是 `{ keyword: { type: 'string' }, num: { type: 'number' } }`；
+   类型只认 `string / number / boolean / object`，**没有 `integer`**。
+2. **`config.home` 可能是 `{}` 而不是字符串。** 直接 `config.home || 默认值` 会把对象带进
+   `path.join()`，报 `The "path" argument must be of type string. Received an instance of Object`。
+   现在先做 `typeof === 'string'` 校验。
+
+工具内部抛错时会把 `message` + 前 6 行栈一起返回，方便用户直接贴给你排查。
+
 ## 开发
 
 ```bash

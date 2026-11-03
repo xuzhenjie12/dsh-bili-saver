@@ -44,9 +44,27 @@ const textOutput = {
 export function apply(ctx, config = {}) {
   if (config.enabled === false) return
 
-  const home = config.home || join(homedir(), '.dsh', 'bili-saver')
+  // 宿主传进来的 config.home 可能是 {} 之类的非字符串（schemastery 默认值没落成字符串），一律类型校验
+  const homeArg = typeof config.home === 'string' ? config.home.trim() : ''
+  const home = homeArg || join(homedir(), '.dsh', 'bili-saver')
   const bili = new BiliSaver({ home })
-  const tool = (spec) => ctx.tools.register(defineTool({ ...spec, output: textOutput }))
+  const tool = (spec) => {
+    const inner = spec.execute
+    return ctx.tools.register(defineTool({
+      ...spec,
+      // 出错了也要把栈带回来：宿主默认只回 message，定位不到哪一行
+      execute: async (a, c) => {
+        try { return await inner(a, c) } catch (e) {
+          return {
+            ok: false,
+            error: String(e?.message ?? e),
+            stack: String(e?.stack ?? '').split('\n').slice(0, 6).join('\n'),
+          }
+        }
+      },
+      output: textOutput,
+    }))
+  }
   // 每次调用都重新读，用户改完 json 立刻生效，不用重启
   const cfg = () => loadConfig(home)
 
@@ -55,15 +73,10 @@ export function apply(ctx, config = {}) {
     description: '搜 B站 视频，只回「够用的字段」（BV/标题/UP/播放/时长/发布时间）。'
       + '默认值来自用户配置（近 N 天、N 条、排序）。一次 8 条 ≈ 1.2k token。',
     parameters: {
-      type: 'object',
-      properties: {
-        keyword: { type: 'string', description: '关键词' },
-        num: { type: 'integer', description: '几条（默认取配置里的 num）' },
-        order: { type: 'string', enum: ['pubdate', 'click', 'totalrank', 'dm'], description: '排序，默认取配置' },
-        days: { type: 'integer', description: '只要最近几天发布的（0 = 不限）' },
-      },
-      required: ['keyword'],
-      additionalProperties: false,
+      keyword: { type: 'string', description: '关键词' },
+      num: { type: 'number', description: '几条（默认取配置里的 num）' },
+      order: { type: 'string', enum: ['pubdate', 'click', 'totalrank', 'dm'], description: '排序，默认取配置' },
+      days: { type: 'number', description: '只要最近几天发布的（0 = 不限）' },
     },
     async execute(args) {
       const c = cfg()
@@ -87,14 +100,9 @@ export function apply(ctx, config = {}) {
     description: '读一条视频：元数据 + 字幕骨架（默认取配置里的 briefChars，含开头/中段抽样/结尾）。'
       + '没有字幕会返回 no_subtitle —— **这不等于没内容**。mode="full" 返回全文，只在必须逐句核对时用。',
     parameters: {
-      type: 'object',
-      properties: {
-        bvid: { type: 'string', description: 'BV 号' },
-        mode: { type: 'string', enum: ['brief', 'full'], description: '默认 brief' },
-        maxChars: { type: 'integer', description: 'brief 字数上限，默认取配置' },
-      },
-      required: ['bvid'],
-      additionalProperties: false,
+      bvid: { type: 'string', description: 'BV 号' },
+      mode: { type: 'string', enum: ['brief', 'full'], description: '默认 brief' },
+      maxChars: { type: 'number', description: 'brief 字数上限，默认取配置' },
     },
     async execute(args) {
       const c = cfg()
@@ -116,15 +124,11 @@ export function apply(ctx, config = {}) {
       + 'maxSteps 每轮最多几个模型回合、order 排序、keywords 默认关键词、reportDir 报告目录）。'
       + '不传 set 就是只读；传了 set 就合并进去并原子写盘。越界值会被夹回合法范围。',
     parameters: {
-      type: 'object',
-      properties: {
-        set: {
-          type: 'object',
-          description: '要改的字段，例如 {"days":3,"num":6}',
-          additionalProperties: true,
-        },
+      set: {
+        type: 'object',
+        additionalProperties: true,
+        description: '要改的字段，例如 {"days":3,"num":6}',
       },
-      additionalProperties: false,
     },
     async execute(args) {
       const patch = args.set && typeof args.set === 'object' ? args.set : null
@@ -137,7 +141,7 @@ export function apply(ctx, config = {}) {
   tool({
     name: 'bili_saver_status',
     description: '看这个插件能不能用：是否已登录（字幕需要）、家目录、当前配置。',
-    parameters: { type: 'object', properties: {}, additionalProperties: false },
+    parameters: {},
     async execute() {
       return {
         ok: true,
